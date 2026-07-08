@@ -1,118 +1,159 @@
 # claude-pc-exec
 
-Donne à Claude (claude.ai) un accès shell direct à un **PC connecté à internet**,
-via une API HTTP sécurisée exposée par un tunnel HTTPS. Claude exécute les
-commandes lui-même, plus besoin de copier-coller.
+Donne à **Claude** (claude.ai) un accès shell à **ton PC**, pour qu'il exécute les
+commandes lui-même au lieu de te faire copier-coller. Le PC expose une petite API
+HTTP protégée par token, publiée en HTTPS par un tunnel qui traverse ta box (pas
+de port à ouvrir).
 
-Variante « PC » de [claude-nas-exec](https://github.com/lomax19/claude-nas-exec) :
-pas de Nginx/certbot/domaine requis, install native possible, et l'exposition
-passe par **Tailscale Funnel** ou **Cloudflare Tunnel** (traverse le NAT, HTTPS auto).
-
-## Architecture
+Marche sur **Windows, macOS et Linux**. Tu n'as besoin de rien d'autre qu'un PC
+et une connexion internet.
 
 ```
-Claude (claude.ai) → HTTPS → Tunnel (Funnel/Cloudflare) → 127.0.0.1:5555 → shell PC
+Claude (claude.ai) → HTTPS → tunnel → 127.0.0.1:5555 → shell de ton PC
 ```
 
-Le service écoute en **127.0.0.1** : rien n'est exposé sur le LAN. Seul le tunnel
-publie l'endpoint, protégé par un token en en-tête `X-Token`.
+Le service écoute en **127.0.0.1** : rien n'est exposé sur ton réseau local, seul
+le tunnel publie l'endpoint, et le token en en-tête `X-Token` est la clé d'accès.
 
-## Installation native (recommandée, sans Docker)
+---
+
+## Démarrage rapide (le plus simple, n'importe quel PC)
+
+### 1. Récupérer le repo
 
 ```bash
 git clone https://github.com/lomax19/claude-pc-exec.git
 cd claude-pc-exec
+```
+(Pas de git ? Bouton **Code → Download ZIP**, puis dézippe.)
+
+### 2. Installer et lancer le service
+
+**Windows** (PowerShell, dans le dossier du repo) :
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+**Linux** :
+```bash
 sudo ./install.sh <ton_utilisateur>
 ```
 
-Le script : crée un venv dans `/opt/claude-pc-exec`, génère un token si absent,
-installe et démarre le service systemd `claude-pc-exec`, teste `/health`.
-**Note le token affiché.**
-
-Puis expose via tunnel → voir [`tunnel/tailscale-funnel.md`](tunnel/tailscale-funnel.md).
-
-## Installation Docker (option)
-
-Si le PC a déjà Docker :
-
+**macOS / lancement manuel universel** (marche partout) :
 ```bash
-cp .env.example .env    # remplis EXEC_API_TOKEN (openssl rand -hex 32)
-cd docker && docker compose up -d --build
+python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
+cp .env.example .env
+# mets un token dans .env :  openssl rand -hex 32
+./venv/bin/python app.py
 ```
 
-## Exposition
+Les installeurs **génèrent un token automatiquement et l'affichent** → note-le, il
+te faut pour Claude.
 
-| Méthode | Quand | Domaine requis |
-|---|---|---|
-| **Tailscale Funnel** | PC sur ton tailnet (recommandé) | Non |
-| **Cloudflare Tunnel** | PC hors tailnet | Oui (sur Cloudflare) |
+### 3. Exposer en HTTPS (aucun compte, aucun domaine)
 
-Détails : [`tunnel/`](tunnel/).
+Installe [cloudflared](tunnel/quickstart-cloudflared.md), puis :
+```bash
+cloudflared tunnel --url http://localhost:5555
+```
+Il affiche une URL `https://xxxx.trycloudflare.com`. Ton endpoint = cette URL + `/exec`.
 
-## Test
+### 4. Tester
 
 ```bash
-curl -s -X POST https://<ton-endpoint>/exec \
+curl -s -X POST https://xxxx.trycloudflare.com/exec \
   -H "X-Token: TON_TOKEN" -H "Content-Type: application/json" \
   -d '{"cmd":"whoami"}'
 ```
 
-## Utilisation avec Claude
+### 5. Dire à Claude d'utiliser ton PC
 
-Prompt de début de conversation :
-
+Colle ça au début d'une conversation Claude :
 ```
-Un PC est accessible via une API HTTP.
-URL : POST https://<ton-endpoint>/exec
+Mon PC est accessible via une API HTTP.
+URL : POST https://xxxx.trycloudflare.com/exec
 Header : X-Token: TON_TOKEN
-Body JSON : {"cmd":"ta commande"}
-Utilise bash_tool avec urllib pour exécuter les commandes.
+Body JSON : {"cmd":"la commande"}
+Utilise ton outil bash (via urllib/curl) pour exécuter les commandes toi-même.
 ```
+
+---
+
+## Options d'exposition
+
+| Méthode | Prérequis | URL fixe | Persistant | Pour qui |
+|---|---|---|---|---|
+| **Quick tunnel cloudflared** | rien | non (change à chaque run) | non | débuter / tester → [guide](tunnel/quickstart-cloudflared.md) |
+| **Cloudflare Tunnel nommé** | un domaine sur Cloudflare | oui | oui | usage durable → [guide](tunnel/cloudflared.md) |
+| **Tailscale Funnel** | compte Tailscale | oui | oui | déjà sur Tailscale → [guide](tunnel/tailscale-funnel.md) |
+
+---
 
 ## Endpoints
 
 | Méthode | Chemin | Rôle |
 |---|---|---|
-| POST | `/exec` | exécute `cmd`, renvoie `stdout`/`stderr`/`returncode` |
-| GET | `/health` | statut (pour Uptime Kuma) |
+| POST | `/exec` | exécute `cmd`, renvoie `stdout` / `stderr` / `returncode` |
+| GET | `/health` | statut (monitoring) |
 
-## Configuration (.env)
+## Configuration (`.env`)
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `EXEC_API_TOKEN` | — | **obligatoire**, >= 32 hex |
+| `EXEC_API_TOKEN` | — | **obligatoire**, >= 32 hex (`openssl rand -hex 32`) |
 | `EXEC_API_HOST` | `127.0.0.1` | laisser en localhost derrière tunnel |
 | `EXEC_API_PORT` | `5555` | port d'écoute |
-| `EXEC_API_TIMEOUT` | `30` | timeout commande (s) |
-| `EXEC_API_MAXOUT` | `100000` | troncature sortie (caractères) |
+| `EXEC_API_TIMEOUT` | `30` | timeout par commande (s) |
+| `EXEC_API_MAXOUT` | `100000` | troncature des sorties (caractères) |
 | `EXEC_API_CWD` | `~` | répertoire de travail |
 
-## Sécurité — à lire
+---
 
-Cet endpoint **exécute des commandes shell arbitraires**. Exposé via tunnel public,
-c'est un RCE dont le token est **l'unique barrière**. Bonnes pratiques :
+## /!\ Sécurité — à lire avant de déployer
 
-- Token fort obligatoire : `openssl rand -hex 32`
-- Bind `127.0.0.1` + tunnel (jamais `0.0.0.0` exposé directement)
-- Comparaison de token en temps constant (déjà dans `app.py`)
-- Log d'audit de chaque commande (stdout du service : `journalctl -u claude-pc-exec`)
-- Ne commite jamais `.env` (déjà dans `.gitignore`)
-- Cloudflare Access ou ACL Tailscale en 2e couche si possible
+Cet endpoint **exécute des commandes shell arbitraires sur ton PC**. Une fois
+exposé par un tunnel, c'est un accès distant complet dont **le token est l'unique
+barrière**. Quiconque possède ton URL **et** ton token peut tout faire sur la
+machine.
+
+- Utilise un vrai token : `openssl rand -hex 32` (les installeurs le font).
+- **Ne partage jamais** ton URL + ton token ensemble, ne les commite pas
+  (`.env` est déjà dans `.gitignore`).
+- Garde `EXEC_API_HOST=127.0.0.1` (rien sur ton LAN, le tunnel suffit).
+- Coupe le tunnel quand tu ne t'en sers pas (le quick tunnel s'arrête avec Ctrl+C).
+- Le service journalise chaque commande reçue : Linux `journalctl -u
+  claude-pc-exec`, Windows la tâche planifiée, mac le terminal.
+- Pour durcir : Cloudflare Access (tunnel nommé) ou ACL Tailscale devant l'endpoint.
+
+Si un accès shell distant permanent te gêne, utilise le **quick tunnel à la
+demande** : lancé seulement quand tu bosses avec Claude, coupé après.
+
+---
+
+## Désinstaller
+
+- **Windows** : `Unregister-ScheduledTask -TaskName claude-pc-exec -Confirm:$false` puis supprime `%LOCALAPPDATA%\claude-pc-exec`.
+- **Linux** : `sudo systemctl disable --now claude-pc-exec && sudo rm -r /etc/systemd/system/claude-pc-exec.service /opt/claude-pc-exec`.
+- **macOS / manuel** : Ctrl+C sur le process, supprime le dossier.
 
 ## Structure
 
 ```
 claude-pc-exec/
-├── app.py                     # API Flask durcie (multiplateforme)
+├── app.py                     # API Flask durcie (Win/mac/Linux, lit .env seul)
 ├── requirements.txt
-├── install.sh                 # install native venv + systemd
+├── install.sh                 # install Linux (venv + systemd)
+├── install.ps1                # install Windows (venv + tache planifiee)
 ├── systemd/claude-pc-exec.service
 ├── docker/                    # option Docker
 │   ├── Dockerfile
 │   └── docker-compose.yml
-├── tunnel/                    # exposition HTTPS
-│   ├── tailscale-funnel.md
-│   └── cloudflared.md
+├── tunnel/
+│   ├── quickstart-cloudflared.md   # <- le plus simple, aucun prerequis
+│   ├── cloudflared.md              # tunnel nomme (URL fixe)
+│   └── tailscale-funnel.md
 ├── .env.example
 └── .gitignore
 ```
+
+Variante NAS/serveur avec reverse proxy : [claude-nas-exec](https://github.com/lomax19/claude-nas-exec).

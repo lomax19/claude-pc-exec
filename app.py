@@ -1,6 +1,13 @@
 from flask import Flask, request, jsonify
 import subprocess, os, hmac, logging, platform, sys
 
+# Charge .env s'il est présent (rend `python app.py` autosuffisant sur Win/mac/Linux)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 app = Flask(__name__)
 
 TOKEN   = os.environ.get("EXEC_API_TOKEN", "")
