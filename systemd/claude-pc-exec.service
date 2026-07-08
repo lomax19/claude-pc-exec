@@ -1,0 +1,19 @@
+[Unit]
+Description=Claude PC Exec API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/opt/claude-pc-exec
+EnvironmentFile=/opt/claude-pc-exec/.env
+ExecStart=/opt/claude-pc-exec/venv/bin/python /opt/claude-pc-exec/app.py
+Restart=on-failure
+RestartSec=3
+# Durcissement basique
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

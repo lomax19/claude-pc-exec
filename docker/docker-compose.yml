@@ -1,0 +1,16 @@
+# Option Docker (si le PC a déjà Docker). Sinon : install natif via install.sh
+services:
+  exec-api:
+    build: .
+    container_name: claude-pc-exec
+    restart: unless-stopped
+    # Bind localhost uniquement : le tunnel s'y connecte, rien d'exposé en LAN
+    ports:
+      - "127.0.0.1:5555:5555"
+    environment:
+      - EXEC_API_TOKEN=${EXEC_API_TOKEN}
+      - EXEC_API_HOST=0.0.0.0   # dans le conteneur ; l'expo LAN est bloquée par le bind 127.0.0.1 ci-dessus
+    volumes:
+      - ${HOME}:${HOME}:ro
+      # Décommente si tu veux piloter Docker du PC depuis Claude :
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
