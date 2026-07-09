@@ -79,6 +79,27 @@ Utilise ton outil bash (via urllib/curl) pour exécuter les commandes toi-même.
 
 ---
 
+## Mode « à la demande » (le plus sûr, recommandé si tu débutes)
+
+Un seul script lance le service **et** le tunnel, affiche l'URL + le prompt tout
+prêt, et **coupe tout au Ctrl+C**. Rien ne reste actif quand tu ne t'en sers pas :
+pas de RCE permanent sur ta machine.
+
+**Linux / macOS :**
+```bash
+./run-ondemand.sh
+```
+**Windows :**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run-ondemand.ps1
+```
+
+Le script crée le venv, génère le token et installe cloudflared au besoin. À
+utiliser **à la place** de l'install systemd/tâche planifiée si tu préfères ne
+rien laisser tourner en permanence.
+
+---
+
 ## Options d'exposition
 
 | Méthode | Prérequis | URL fixe | Persistant | Pour qui |
@@ -144,6 +165,8 @@ claude-pc-exec/
 ├── requirements.txt
 ├── install.sh                 # install Linux (venv + systemd)
 ├── install.ps1                # install Windows (venv + tache planifiee)
+├── run-ondemand.sh            # mode a la demande Linux/macOS (coupe tout au Ctrl+C)
+├── run-ondemand.ps1           # mode a la demande Windows
 ├── systemd/claude-pc-exec.service
 ├── docker/                    # option Docker
 │   ├── Dockerfile
@@ -157,3 +180,7 @@ claude-pc-exec/
 ```
 
 Variante NAS/serveur avec reverse proxy : [claude-nas-exec](https://github.com/lomax19/claude-nas-exec).
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE). Réutilise, modifie et partage librement.
