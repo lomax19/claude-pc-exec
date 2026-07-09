@@ -79,6 +79,28 @@ Utilise ton outil bash (via urllib/curl) pour exécuter les commandes toi-même.
 
 ---
 
+---
+
+## Ce que tu peux demander à Claude, une fois branché
+
+Claude exécute les commandes lui-même et te répond en clair. Quelques exemples :
+
+- **Ranger / nettoyer** : « range mon dossier Téléchargements par type de fichier »,
+  « trouve les fichiers de plus de 1 Go », « supprime les doublons de ce dossier ».
+- **Diagnostiquer** : « pourquoi mon PC rame ? », « qu'est-ce qui prend toute ma
+  RAM ? », « mon wifi déconnecte, regarde les logs ».
+- **Installer / configurer** : « installe VLC », « mets à jour tous mes paquets »,
+  « configure git avec mon email ».
+- **Chercher** : « retrouve le PDF où je parle de facture Orange », « liste mes
+  gros dossiers photos ».
+- **Automatiser** : « écris un script qui sauvegarde mes documents chaque soir »,
+  « convertis toutes ces images en PDF ».
+
+Tu décris ce que tu veux en français, Claude traduit en commandes, les lance sur
+ton PC et t'explique le résultat. Tu gardes la main : il te montre ce qu'il fait.
+
+---
+
 ## Mode « à la demande » (le plus sûr, recommandé si tu débutes)
 
 Un seul script lance le service **et** le tunnel, affiche l'URL + le prompt tout
